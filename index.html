@@ -1,0 +1,220 @@
+.<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Pro de Merma y Pérdidas</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+    .container { max-width: 1200px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+    h1 { text-align: center; margin-bottom: 10px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #333; color: white; }
+    tr:nth-child(even) { background-color: #f2f2f2; }
+    input[type="number"], input[type="text"] { width: 80px; }
+    input[name="producto"] { width: 120px; }
+    button { padding: 10px 20px; margin: 10px 5px 0 0; cursor: pointer; border-radius: 5px; border: none; background-color: #333; color: white; }
+    button:hover { background-color: #555; }
+    .resumen { font-weight: bold; background-color: #ffeeba; }
+    .charts { display: flex; justify-content: space-around; flex-wrap: wrap; margin-top: 20px; }
+    canvas { background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Dashboard Pro de Merma y Pérdidas</h1>
+
+    <table id="productosTable">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Libras Semanales</th>
+          <th>Precio por Libra ($)</th>
+          <th>Merma %</th>
+          <th>Robo Diario (lb)</th>
+          <th>Merma Semana (lb)</th>
+          <th>Pérdida Semana ($)</th>
+          <th>Pérdida Mes ($)</th>
+          <th>Pérdida Año ($)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background-color:#e3f2fd">
+          <td><input type="text" value="Tomate"></td>
+          <td><input type="number" value="2000"></td>
+          <td><input type="number" value="1"></td>
+          <td><input type="number" value="8"></td>
+          <td><input type="number" value="5"></td>
+          <td class="mermaSemana">0</td>
+          <td class="perdidaSemana">0</td>
+          <td class="perdidaMes">0</td>
+          <td class="perdidaAnual">0</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr class="resumen">
+          <td>Total</td>
+          <td id="totalLibras">0</td>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
+          <td id="totalMerma">0</td>
+          <td id="totalSemana">0</td>
+          <td id="totalMes">0</td>
+          <td id="totalAnual">0</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <button onclick="calcularMerma()">Calcular Pérdidas</button>
+    <button onclick="agregarProducto()">Agregar Producto</button>
+    <button onclick="exportarPDF()">Exportar a PDF</button>
+
+    <div class="charts">
+      <canvas id="barChart" width="500" height="300"></canvas>
+      <canvas id="pieChart" width="500" height="300"></canvas>
+    </div>
+  </div>
+
+  <!-- Librerías Chart.js y jsPDF -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+    let barChart, pieChart;
+
+    function calcularMerma() {
+      const rows = document.querySelectorAll("#productosTable tbody tr");
+      let totalMermaSemana = 0;
+      let totalPerdidaSemana = 0;
+      let totalPerdidaMes = 0;
+      let totalPerdidaAnual = 0;
+      let totalLibras = 0;
+
+      const nombres = [];
+      const perdidas = [];
+
+      rows.forEach((row, index) => {
+        const libras = parseFloat(row.children[1].querySelector('input').value) || 0;
+        const precio = parseFloat(row.children[2].querySelector('input').value) || 0;
+        const mermaPct = parseFloat(row.children[3].querySelector('input').value) || 0;
+        const roboDiario = parseFloat(row.children[4].querySelector('input').value) || 0;
+
+        const mermaPorcentaje = libras * (mermaPct / 100);
+        const mermaRobo = roboDiario * 7;
+        const mermaSemana = mermaPorcentaje + mermaRobo;
+        const perdidaSemana = mermaSemana * precio;
+        const perdidaMes = perdidaSemana * 4;
+        const perdidaAnual = perdidaSemana * 52;
+
+        row.querySelector('.mermaSemana').textContent = mermaSemana.toFixed(2);
+        row.querySelector('.perdidaSemana').textContent = perdidaSemana.toFixed(2);
+        row.querySelector('.perdidaMes').textContent = perdidaMes.toFixed(2);
+        row.querySelector('.perdidaAnual').textContent = perdidaAnual.toFixed(2);
+
+        row.style.backgroundColor = index % 2 === 0 ? '#e3f2fd' : '#fff3e0';
+
+        totalMermaSemana += mermaSemana;
+        totalPerdidaSemana += perdidaSemana;
+        totalPerdidaMes += perdidaMes;
+        totalPerdidaAnual += perdidaAnual;
+        totalLibras += libras;
+
+        nombres.push(row.children[0].querySelector('input').value);
+        perdidas.push(perdidaSemana.toFixed(2));
+      });
+
+      document.getElementById('totalMerma').textContent = totalMermaSemana.toFixed(2);
+      document.getElementById('totalSemana').textContent = totalPerdidaSemana.toFixed(2);
+      document.getElementById('totalMes').textContent = totalPerdidaMes.toFixed(2);
+      document.getElementById('totalAnual').textContent = totalPerdidaAnual.toFixed(2);
+      document.getElementById('totalLibras').textContent = totalLibras;
+
+      // Actualizar gráficas
+      actualizarGraficas(nombres, perdidas);
+    }
+
+    function agregarProducto() {
+      const tbody = document.querySelector("#productosTable tbody");
+      const row = document.createElement("tr");
+      const rowIndex = tbody.children.length;
+      row.style.backgroundColor = rowIndex % 2 === 0 ? '#e3f2fd' : '#fff3e0';
+      row.innerHTML = `
+        <td><input type="text" value="Producto"></td>
+        <td><input type="number" value="0"></td>
+        <td><input type="number" value="0"></td>
+        <td><input type="number" value="8"></td>
+        <td><input type="number" value="0"></td>
+        <td class="mermaSemana">0</td>
+        <td class="perdidaSemana">0</td>
+        <td class="perdidaMes">0</td>
+        <td class="perdidaAnual">0</td>
+      `;
+      tbody.appendChild(row);
+    }
+
+    function actualizarGraficas(labels, data) {
+      if (barChart) barChart.destroy();
+      if (pieChart) pieChart.destroy();
+
+      const ctxBar = document.getElementById('barChart').getContext('2d');
+      barChart = new Chart(ctxBar, {
+        type: 'bar',
+        data: { labels: labels, datasets: [{ label: 'Pérdida Semanal ($)', data: data, backgroundColor: 'rgba(75, 192, 192, 0.6)' }] },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+
+      const ctxPie = document.getElementById('pieChart').getContext('2d');
+      pieChart = new Chart(ctxPie, {
+        type: 'pie',
+        data: { labels: labels, datasets: [{ label: 'Pérdida Semanal', data: data, backgroundColor: labels.map(() => `hsl(${Math.random()*360},70%,60%)`) }] },
+        options: { responsive: true }
+      });
+    }
+
+    function exportarPDF() {
+      const rows = document.querySelectorAll("#productosTable tbody tr");
+      const data = [];
+      rows.forEach(row => {
+        data.push([
+          row.children[0].querySelector('input').value,
+          row.children[1].querySelector('input').value,
+          row.children[2].querySelector('input').value,
+          row.children[3].querySelector('input').value,
+          row.children[4].querySelector('input').value,
+          row.children[5].textContent,
+          row.children[6].textContent,
+          row.children[7].textContent,
+          row.children[8].textContent
+        ]);
+      });
+
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFontSize(14);
+      doc.text("Reporte Pro de Merma y Pérdidas", 14, 20);
+
+      doc.autoTable({
+        head: [['Producto', 'Libras', 'Precio $', '% Merma', 'Robo Diario lb', 'Merma Semana lb', 'Pérdida Semana $', 'Pérdida Mes $', 'Pérdida Año $']],
+        body: data,
+        startY: 30,
+        theme: 'grid',
+        headStyles: { fillColor: [51, 51, 51] },
+        foot: [[
+          'Total',
+          document.getElementById('totalLibras').textContent,
+          '-','-','-',
+          document.getElementById('totalMerma').textContent,
+          document.getElementById('totalSemana').textContent,
+          document.getElementById('totalMes').textContent,
+          document.getElementById('totalAnual').textContent
+        ]],
+        footStyles: { fillColor: [255, 235, 186], fontStyle: 'bold' }
+      });
+
+      doc.save("reporte_merma_pro.pdf");
+    }
+  </script>
+</body>
+</html>
